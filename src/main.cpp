@@ -1,19 +1,4 @@
-/* -------------------------------------------------------------------------- */
-/*                                  Includes                                  */
-/* -------------------------------------------------------------------------- */
-
-#include <Arduino.h>
-
-// Modules
-#include "IcoMod_StartScreen.h"
-
-// Display
-#include <Adafruit_GFX.h>    // Core graphics library
-#include <Adafruit_ST7735.h> // Hardware-specific library for ST7735
-#include <SPI.h>
-
-// Encoder
-#include "AiEsp32RotaryEncoder.h"
+#include <header.h>
 
 /* -------------------------------------------------------------------------- */
 /*                               Initializations                              */
@@ -38,8 +23,19 @@ float p = 3.1415926;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
 
-// Modules
-IcoMod_StartScreen startScreen = IcoMod_StartScreen(&tft, ST77XX_YELLOW);
+/* -------------------------------------------------------------------------- */
+/*                      Modules - Initialize modules here                     */
+/* -------------------------------------------------------------------------- */
+
+int _currentModule = 0;
+IcoMod* modules[2] =
+{
+  new IcoMod_StartScreen(&tft, ST77XX_YELLOW),
+  new IcoMod_StartScreen(&tft, ST77XX_BLUE)
+};
+
+// IcoMod* startScreen = new IcoMod_StartScreen(&tft, ST77XX_YELLOW);
+// IcoMod* startScreen2 = new IcoMod_StartScreen(&tft, ST77XX_BLUE);
 
 /* -------------------------------------------------------------------------- */
 /*                               ROTARY ENCODER                               */
@@ -58,7 +54,7 @@ void rotary_onButtonClick()
   Serial.print(millis());
   Serial.println(" milliseconds after restart");
 
-  startScreen.onClick();
+  modules[_currentModule]->onClick();
 }
 
 void checkRotation()
@@ -92,7 +88,15 @@ void checkRotation()
       _rotations++;
       Serial.print("Rotation");
       Serial.println(_rotations);
+
+      _currentModule = (_currentModule + 1) % (sizeof(modules) / sizeof(IcoMod*));
+      modules[_currentModule]->initialize();
+
+      Serial.print("Module");
+      Serial.println(_currentModule);
+
       _startValue = _currentValue;
+      
     }
 
     if (millis() - _startedRotating > 500)
@@ -146,7 +150,7 @@ void setup()
   rotaryEncoder.disableAcceleration();
 
   // Initialize first module
-  startScreen.initialize();
+  modules[_currentModule]->initialize();
 }
 
 void loop()
@@ -154,5 +158,5 @@ void loop()
   rotary_loop();
 
   // Update current module
-  startScreen.refresh();
+  modules[_currentModule]->refresh();
 }
