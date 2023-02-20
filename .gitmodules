@@ -1,0 +1,9 @@
+[submodule "lib/IcoMod_Logo"]
+	path = lib/IcoMod_Logo
+	url = git@github.com:tillmii/IcoMod_Logo.git
+[submodule "lib/IcoMod_Weather"]
+	path = lib/IcoMod_Weather
+	url = git@github.com:tillmii/IcoMod_Weather.git
+[submodule "lib/IcoMod_DateTime"]
+	path = lib/IcoMod_DateTime
+	url = git@github.com:tillmii/IcoMod_DateTime.git
