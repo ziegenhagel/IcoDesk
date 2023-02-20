@@ -33,7 +33,7 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, 
 int _currentModule = 0;
 IcoMod* modules[3] =
 {
-  new IcoMod_StartScreen(&tft, STARTSCREEN_COLOR),
+  new IcoMod_Logo(&tft, STARTSCREEN_COLOR),
   new IcoMod_Weather(&tft, WEATHER_CITY, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL),
   new IcoMod_DateTime(&tft, DATETIME_GMT_OFFSET_SEC, DATETIME_DAYLIGHT_OFFSET_SEC)
 };

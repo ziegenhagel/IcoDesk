@@ -2,7 +2,7 @@
 /*                                   Modules                                  */
 /* -------------------------------------------------------------------------- */
 
-#include "IcoMod_StartScreen.h"
+#include "IcoMod_Logo.h"
 #define STARTSCREEN_COLOR ST77XX_YELLOW
 
 #include "IcoMod_Weather.h"
