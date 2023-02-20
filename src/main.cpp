@@ -4,6 +4,9 @@
 /*                               Initializations                              */
 /* -------------------------------------------------------------------------- */
 
+// Helper function
+#define sign(x) ({ __typeof__(x) _x = (x); _x < 0 ? -1 : _x ? 1 : 0; })
+
 // Display
 #define TFT_CS 5
 #define TFT_RST 4 // Or set to -1 and connect to Arduino RESET pin
@@ -28,14 +31,12 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, 
 /* -------------------------------------------------------------------------- */
 
 int _currentModule = 0;
-IcoMod* modules[2] =
+IcoMod* modules[3] =
 {
-  new IcoMod_StartScreen(&tft, ST77XX_YELLOW),
-  new IcoMod_StartScreen(&tft, ST77XX_BLUE)
+  new IcoMod_StartScreen(&tft, STARTSCREEN_COLOR),
+  new IcoMod_Weather(&tft, WEATHER_CITY, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL),
+  new IcoMod_DateTime(&tft, DATETIME_GMT_OFFSET_SEC, DATETIME_DAYLIGHT_OFFSET_SEC)
 };
-
-// IcoMod* startScreen = new IcoMod_StartScreen(&tft, ST77XX_YELLOW);
-// IcoMod* startScreen2 = new IcoMod_StartScreen(&tft, ST77XX_BLUE);
 
 /* -------------------------------------------------------------------------- */
 /*                               ROTARY ENCODER                               */
@@ -65,7 +66,6 @@ void checkRotation()
   static bool _isRotating = false;
   static unsigned long _startedRotating = 0;
   static int _steps = 0;
-  static int _rotations = 0;
 
   _currentValue = rotaryEncoder.readEncoder();
 
@@ -82,14 +82,13 @@ void checkRotation()
   // Check steps when rotating
   if (_isRotating)
   {
-    _steps = abs(_startValue - _currentValue);
-    if (_steps >= 3)
+    _steps = _startValue - _currentValue;
+    if (abs(_steps) >= 3)
     {
-      _rotations++;
-      Serial.print("Rotation");
-      Serial.println(_rotations);
+      int dir = sign(_steps);
 
-      _currentModule = (_currentModule + 1) % (sizeof(modules) / sizeof(IcoMod*));
+      int numberOfModules = sizeof(modules) / sizeof(IcoMod*);
+      _currentModule = (_currentModule + dir + numberOfModules) % numberOfModules;
       modules[_currentModule]->initialize();
 
       Serial.print("Module");
@@ -129,6 +128,21 @@ void IRAM_ATTR readEncoderISR()
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                    WiFi                                    */
+/* -------------------------------------------------------------------------- */
+
+void initWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, WIFI_KEY);
+  Serial.print("Connecting to WiFi ..");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print('.');
+    delay(1000);
+  }
+  Serial.println(WiFi.localIP());
+}
+
+/* -------------------------------------------------------------------------- */
 /*                               SETUP and LOOP                               */
 /* -------------------------------------------------------------------------- */
 
@@ -136,6 +150,9 @@ void setup()
 {
   Serial.begin(9600);
   Serial.println("IcoDesk is starting...");
+
+  // Connect to WiFi
+  initWiFi();
 
   // Display
   tft.initR(INITR_BLACKTAB); // Init ST7735S chip, black tab (128x160 px)

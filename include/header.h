@@ -8,6 +8,12 @@
 // Rotary Encoder
 #include "AiEsp32RotaryEncoder.h"
 
+// WiFi
+#include <WiFi.h>
+
+// Secrets
+#include "secrets.h"
+
 // Modules
 #include "IcoMod.h"
 #include "modules.h"
