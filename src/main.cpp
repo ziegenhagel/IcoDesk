@@ -1,4 +1,5 @@
 #include <header.h>
+#include "ApiUtils.h"
 
 /* -------------------------------------------------------------------------- */
 /*                               Initializations                              */
@@ -30,13 +31,11 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, 
 /*                      Modules - Initialize modules here                     */
 /* -------------------------------------------------------------------------- */
 
-int _currentModule = 0;
-IcoMod* modules[3] =
-{
-  new IcoMod_Logo(&tft, STARTSCREEN_COLOR),
-  new IcoMod_Weather(&tft, WEATHER_CITY, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL),
-  new IcoMod_DateTime(&tft, DATETIME_GMT_OFFSET_SEC, DATETIME_DAYLIGHT_OFFSET_SEC)
-};
+StaticJsonDocument<1024> config;
+
+uint8_t _currentModule = 0;
+uint8_t numberOfModules = 0;
+IcoMod* modules[16];
 
 /* -------------------------------------------------------------------------- */
 /*                               ROTARY ENCODER                               */
@@ -87,7 +86,6 @@ void checkRotation()
     {
       int dir = sign(_steps);
 
-      int numberOfModules = sizeof(modules) / sizeof(IcoMod*);
       _currentModule = (_currentModule + dir + numberOfModules) % numberOfModules;
       modules[_currentModule]->initialize();
 
@@ -95,7 +93,6 @@ void checkRotation()
       Serial.println(_currentModule);
 
       _startValue = _currentValue;
-      
     }
 
     if (millis() - _startedRotating > 500)
@@ -110,12 +107,7 @@ void checkRotation()
 void rotary_loop()
 {
   checkRotation();
-  // dont print anything unless value changed
-  //  if (rotaryEncoder.encoderChanged())
-  //  {
-  //  	Serial.print("Value: ");
-  //  	Serial.println(rotaryEncoder.readEncoder());
-  //  }
+  
   if (rotaryEncoder.isEncoderButtonClicked())
   {
     rotary_onButtonClick();
@@ -131,7 +123,8 @@ void IRAM_ATTR readEncoderISR()
 /*                                    WiFi                                    */
 /* -------------------------------------------------------------------------- */
 
-void initWiFi() {
+void initWiFi()
+{
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, WIFI_KEY);
   Serial.print("Connecting to WiFi ..");
@@ -140,6 +133,67 @@ void initWiFi() {
     delay(1000);
   }
   Serial.println(WiFi.localIP());
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                CONFIGURATION                               */
+/* -------------------------------------------------------------------------- */
+
+void getConfig()
+{
+  const char* configUrl = "http://icode.sk/api/config/69";
+  
+  ApiUtils::getJsonFromServer(&config, configUrl);
+
+  const char* version = config["version"]; // "1.0.0"
+  Serial.print("IcoDesk Version ");
+  Serial.println(version);
+}
+
+IcoMod* createModuleInstance(JsonObject &moduleConfig)
+{
+  String moduleName = moduleConfig["name"];
+
+  Serial.print("Create instance of ");
+  Serial.print(moduleName);
+  Serial.println(" module");
+
+  if (moduleName == "Logo")
+  {
+    return new IcoMod_Logo(&tft, STARTSCREEN_COLOR);
+  }
+  if (moduleName == "Weather")
+  {
+    return new IcoMod_Weather(&tft, WEATHER_CITY, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL);
+  }
+  if (moduleName == "DateTime")
+  {
+    return new IcoMod_DateTime(&tft, DATETIME_GMT_OFFSET_SEC, DATETIME_DAYLIGHT_OFFSET_SEC);
+  }
+
+  return nullptr;
+}
+
+void initializeModules()
+{
+  if (config.isNull())
+  {
+    Serial.println("Error: No config found");
+    return;
+  }
+
+  JsonArray modulesArray = config["modules"].as<JsonArray>();
+
+  numberOfModules = modulesArray.size();
+
+  Serial.print("Number of modules: ");
+  Serial.println(numberOfModules);
+
+  for (int i = 0; i < numberOfModules; i++)
+  {
+    JsonObject module = modulesArray[i];
+    modules[i] = createModuleInstance(module);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -154,6 +208,9 @@ void setup()
   // Connect to WiFi
   initWiFi();
 
+  getConfig();
+  initializeModules();
+
   // Display
   tft.initR(INITR_BLACKTAB); // Init ST7735S chip, black tab (128x160 px)
   tft.setRotation(2);
@@ -166,8 +223,12 @@ void setup()
   rotaryEncoder.setBoundaries(-1000, 1000, circleValues); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
   rotaryEncoder.disableAcceleration();
 
+  Serial.println("Initialize first module...");
+
   // Initialize first module
   modules[_currentModule]->initialize();
+
+  Serial.println("Done.");
 }
 
 void loop()
