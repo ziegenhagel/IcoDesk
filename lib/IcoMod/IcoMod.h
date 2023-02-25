@@ -8,6 +8,7 @@
 #define IcoMod_h
 
 #include "Arduino.h"
+#include <ArduinoJson.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 
@@ -19,6 +20,7 @@ class IcoMod
     virtual void refresh() = 0;
   protected:
     Adafruit_ST7735* _tft;
+    unsigned int* _colors;
 };
 
 #endif

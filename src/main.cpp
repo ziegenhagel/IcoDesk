@@ -1,5 +1,6 @@
 #include <header.h>
 #include "ApiUtils.h"
+#include "RandomUtils.h"
 
 /* -------------------------------------------------------------------------- */
 /*                               Initializations                              */
@@ -32,6 +33,7 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, 
 /* -------------------------------------------------------------------------- */
 
 StaticJsonDocument<1024> config;
+unsigned int colors[4];
 
 uint8_t _currentModule = 0;
 uint8_t numberOfModules = 0;
@@ -145,6 +147,13 @@ void getConfig()
   
   ApiUtils::getJsonFromServer(&config, configUrl);
 
+  JsonObject colorsObject = config["colors"];
+
+  colors[0] = RandomUtils::convertHexStringTo16BitColor(colorsObject["background"]);
+  colors[1] = RandomUtils::convertHexStringTo16BitColor(colorsObject["foreground"]);
+  colors[2] = RandomUtils::convertHexStringTo16BitColor(colorsObject["accent"]);
+  colors[3] = RandomUtils::convertHexStringTo16BitColor(colorsObject["danger"]);
+
   const char* version = config["version"]; // "1.0.0"
   Serial.print("IcoDesk Version ");
   Serial.println(version);
@@ -158,17 +167,19 @@ IcoMod* createModuleInstance(JsonObject &moduleConfig)
   Serial.print(moduleName);
   Serial.println(" module");
 
+  JsonObject params = moduleConfig["config"];
+
   if (moduleName == "Logo")
   {
-    return new IcoMod_Logo(&tft, STARTSCREEN_COLOR);
+    return new IcoMod_Logo(&tft, colors, params);
   }
   if (moduleName == "Weather")
   {
-    return new IcoMod_Weather(&tft, WEATHER_CITY, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL);
+    return new IcoMod_Weather(&tft, colors, params);
   }
   if (moduleName == "DateTime")
   {
-    return new IcoMod_DateTime(&tft, DATETIME_GMT_OFFSET_SEC, DATETIME_DAYLIGHT_OFFSET_SEC);
+    return new IcoMod_DateTime(&tft, colors, params);
   }
 
   return nullptr;
