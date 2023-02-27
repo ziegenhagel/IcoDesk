@@ -1,6 +1,10 @@
 #include <header.h>
+
 #include "ApiUtils.h"
 #include "RandomUtils.h"
+#include "TextUtils.h"
+
+#include "WiFiManager.h"
 
 /* -------------------------------------------------------------------------- */
 /*                               Initializations                              */
@@ -122,19 +126,16 @@ void IRAM_ATTR readEncoderISR()
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                    WiFi                                    */
+/*                                 Setup WiFi                                 */
 /* -------------------------------------------------------------------------- */
 
-void initWiFi()
+void drawInitializationScreen()
 {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, WIFI_KEY);
-  Serial.print("Connecting to WiFi ..");
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print('.');
-    delay(1000);
-  }
-  Serial.println(WiFi.localIP());
+  tft.fillScreen(ST77XX_BLACK);
+
+  // const char* text = "Welcome to your new IcoDesk!\nTo configure the device, please connect to the network \"IcoDeskWiFi\" and follow the instructions.";
+  String text = "Welcome to your new IcoDesk! To configure the device, please connect to the network \"IcoDeskWiFi\" and follow the instructions.";
+  TextUtils::printLinesCentered(&tft, text, 10, 8, 10, 1, ST77XX_WHITE);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -195,15 +196,19 @@ void initializeModules()
 
   JsonArray modulesArray = config["modules"].as<JsonArray>();
 
-  numberOfModules = modulesArray.size();
+  numberOfModules = modulesArray.size() + 1;
 
   Serial.print("Number of modules: ");
   Serial.println(numberOfModules);
 
+  // Add (mandatory) config module
+  JsonObject obj = modulesArray[0];
+  modules[0] = new IcoMod_Config(&tft, colors, obj);
+
   for (int i = 0; i < numberOfModules; i++)
   {
     JsonObject module = modulesArray[i];
-    modules[i] = createModuleInstance(module);
+    modules[i + 1] = createModuleInstance(module);
   }
 }
 
@@ -215,12 +220,6 @@ void setup()
 {
   Serial.begin(9600);
   Serial.println("IcoDesk is starting...");
-
-  // Connect to WiFi
-  initWiFi();
-
-  getConfig();
-  initializeModules();
 
   // Display
   tft.initR(INITR_BLACKTAB); // Init ST7735S chip, black tab (128x160 px)
@@ -234,9 +233,40 @@ void setup()
   rotaryEncoder.setBoundaries(-1000, 1000, circleValues); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
   rotaryEncoder.disableAcceleration();
 
-  Serial.println("Initialize first module...");
+  // Draw instructions to connect to WiFi
+  drawInitializationScreen();
+
+  // WiFiManager
+  // Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+
+  // Uncomment and run it once, if you want to erase all the stored information
+  // wifiManager.resetSettings();
+
+  // wifiManager.setDebugOutput(false);
+
+  wifiManager.setAPStaticIPConfig(IPAddress(8,8,8,8), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
+
+  const char* headText = "<h1>IcoDesk</h1><p>Congratulations! You are the owner of a brand new <b>IcoDesk</b>!</p><p>In order to connect your <b>IcoDesk</b> to the Internet, please enter the password of your Wi-Fi network.</p>";
+  wifiManager.setCustomHeadElement(headText);
+  wifiManager.setTitle("");
+
+  std::vector<const char *> menu  = { "wifi" };
+  wifiManager.setShowInfoUpdate(false);
+  wifiManager.setShowInfoErase(false);
+  wifiManager.setMenu(menu);
+  
+  wifiManager.autoConnect("IcoDeskWiFi");
+  Serial.println("Connected.");
+
+  // Connect to WiFi
+  // initWiFi();
+
+  getConfig();
+  initializeModules();
 
   // Initialize first module
+  Serial.println("Initialize first module...");
   modules[_currentModule]->initialize();
 
   Serial.println("Done.");
